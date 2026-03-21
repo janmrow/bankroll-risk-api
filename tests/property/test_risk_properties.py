@@ -62,6 +62,9 @@ def test_horizon_ruin_probability_is_bounded(
     initial_bankroll: float,
     ruin_threshold_fraction: float,
 ) -> None:
+    """
+    Property: Probability must always stay within [0, 1] range.
+    """
     result = horizon_ruin_probability(
         win_rate=win_rate,
         reward_to_risk_ratio=reward_to_risk_ratio,
@@ -71,7 +74,9 @@ def test_horizon_ruin_probability_is_bounded(
         ruin_threshold_fraction=ruin_threshold_fraction,
     )
 
+    # We use strict comparison because the production code now employs np.clip.
     assert 0.0 <= result <= 1.0
+    assert not np.isnan(result)
 
 
 @settings(max_examples=100, deadline=None)
@@ -164,6 +169,7 @@ def test_higher_ruin_threshold_does_not_reduce_ruin_probability(
         ruin_threshold_fraction=threshold_high,
     )
 
+    # Allow tiny float noise during comparison
     assert ruin_high >= ruin_low - 1e-12
 
 
@@ -205,6 +211,7 @@ def test_higher_win_rate_does_not_increase_ruin_probability(
         ruin_threshold_fraction=ruin_threshold_fraction,
     )
 
+    # Allow tiny float noise during comparison
     assert ruin_high <= ruin_low + 1e-12
 
 

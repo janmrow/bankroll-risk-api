@@ -154,6 +154,10 @@ def horizon_ruin_probability(
     initial_bankroll: float,
     ruin_threshold_fraction: float,
 ) -> float:
+    """
+    Calculates the exact probability that the bankroll hits or falls below
+    the ruin threshold within a given horizon (trials).
+    """
     bankrolls, probabilities = terminal_bankroll_distribution(
         win_rate=win_rate,
         reward_to_risk_ratio=reward_to_risk_ratio,
@@ -166,4 +170,8 @@ def horizon_ruin_probability(
         ruin_threshold_fraction=ruin_threshold_fraction,
     )
 
-    return float(probabilities[bankrolls <= threshold].sum())
+    # Use NumPy to sum probabilities of all outcomes where bankroll <= threshold
+    raw_probability = probabilities[bankrolls <= threshold].sum()
+
+    # Use clipping to handle floating-point accumulation noise
+    return float(np.clip(raw_probability, 0.0, 1.0))
