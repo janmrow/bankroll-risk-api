@@ -40,9 +40,7 @@ class AnalysisOutcomes(ResponseBaseModel):
 
 class RiskAnalysisResponse(ResponseBaseModel):
     model_version: Literal["v1"] = Field(default="v1")
-    analysis_type: Literal["exact_terminal_binomial"] = Field(
-        default="exact_terminal_binomial"
-    )
+    analysis_type: Literal["exact_terminal_binomial"] = Field(default="exact_terminal_binomial")
     inputs: AnalysisInputs
     metrics: AnalysisMetrics
     outcomes: AnalysisOutcomes
