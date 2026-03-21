@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api.routes.risk import router as risk_router
 from app.core.logging import configure_logging
 from app.core.settings import get_settings
 
@@ -12,6 +13,7 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
     )
+    app.include_router(risk_router, prefix=settings.api_v1_prefix)
 
     @app.get("/health")
     def health() -> dict[str, str]:
