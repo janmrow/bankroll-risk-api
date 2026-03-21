@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run Ruff
+        run: uv run ruff check .
+
+      - name: Run mypy
+        run: uv run mypy app
+
+      - name: Run pytest
+        run: uv run pytest
+
+      - name: Build Docker image
+        run: docker build -t bankroll-risk-api .
+
+      - name: Run container smoke test
+        run: |
+          docker run -d --rm -p 8000:8000 --name bankroll-api bankroll-risk-api
+
+          echo "Waiting for API to start..."
+          for i in {1..10}; do
+            if curl -s -f http://127.0.0.1:8000/health > /dev/null; then
+              echo "API is healthy and responding!"
+              exit 0
+            fi
+            echo "Attempt $i failed. Retrying in 2 seconds..."
+            sleep 2
+          done
+
+          echo "API failed to start within the timeout. Container logs:"
+          docker logs bankroll-api
+          exit 1

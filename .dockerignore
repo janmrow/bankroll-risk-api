@@ -2,8 +2,14 @@
 .env
 .env.*
 !.env.example
+secrets.py
 
-# --- Python / Virtual Environments ---
+# --- Git & CI/CD ---
+.git
+.gitignore
+.github
+
+# --- Python / Dev Artifacts ---
 .venv
 venv
 env
@@ -19,6 +25,7 @@ __pycache__
 .hypothesis
 .coverage
 htmlcov
+.pytest_cache
 
 # --- Build & Packaging ---
 dist
@@ -30,8 +37,7 @@ build
 .idea
 .DS_Store
 Thumbs.db
-*.swp
 
-# --- Project Specific ---
-*.log
-local_settings.py
+# --- Project Specific (opcjonalnie) ---
+tests
+docs
