@@ -19,6 +19,7 @@ dev = [
   "ruff>=0.5,<1.0",
   "schemathesis>=3.35,<4.0",
   "mutmut>=2.4,<3.0",
+  "bandit>=1.9.4",
 ]
 
 [tool.uv]
@@ -53,3 +54,7 @@ no_implicit_optional = true
 strict_equality = true
 pretty = true
 packages = ["app"]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]

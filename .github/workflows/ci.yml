@@ -34,15 +34,28 @@ jobs:
       - name: Run mypy
         run: uv run mypy app
 
+      - name: Run Bandit (SAST)
+        run: uv run bandit -r app/ -c pyproject.toml
+
       - name: Run pytest
         run: uv run pytest
 
       - name: Build Docker image
-        run: docker build -t bankroll-risk-api .
+        run: docker build -t bankroll-risk-api:test .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'bankroll-risk-api:test'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
 
       - name: Run container smoke test
         run: |
-          docker run -d --rm -p 8000:8000 --name bankroll-api bankroll-risk-api
+          docker run -d --rm -p 8000:8000 --name bankroll-api bankroll-risk-api:test
 
           echo "Waiting for API to start..."
           for i in {1..10}; do
