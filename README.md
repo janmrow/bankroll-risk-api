@@ -97,6 +97,7 @@ This project implements a multi-layered, aggressive testing strategy designed to
 2. **Property-Based Testing (`Hypothesis`):** Verifies mathematical invariants (e.g., ruin probabilities must stay within `[0, 1]`, higher win rates must not increase ruin probability).
 3. **Contract & Fuzzing (`Schemathesis`):** Automatically reads the OpenAPI schema and bombs the endpoints with extreme inputs to prove zero unhandled exceptions (no 5xx errors) and strict Pydantic response compliance.
 4. **Mutation Testing (`mutmut`):** Achieves a **100% mutation kill rate**. Any change to the domain logic (flipped operators, off-by-one errors) is immediately caught by the test suite, proving the tests have true semantic understanding of the domain, not just high line coverage.
+5. **Performance & Capacity (`k6`):** Load testing configuration to establish performance baselines and verify CPU bounds under maximum computational load (e.g., maximum allowed `trials`), enforcing p95 latency SLOs.
 
 ## Local development
 
@@ -125,6 +126,15 @@ uv run pytest tests/contract/test_fuzzing.py -v
 # Mutation Testing
 uv run mutmut run --paths-to-mutate app/domain/formulas/
 uv run mutmut results
+```
+
+### 3. Run Performance Tests (k6)
+
+Assuming the API is running locally on port 8000:
+
+```bash
+# Run k6 via Docker (no local installation required)
+docker run --rm -i --network host grafana/k6 run - < tests/performance/load_test.js
 ```
 
 ## Docker
