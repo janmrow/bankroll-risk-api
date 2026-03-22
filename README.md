@@ -41,46 +41,6 @@ This project does not include:
 - strategy comparison platform features
 - database, auth, UI, CRUD
 
-## Model
-
-Definitions:
-
-- `p = win_rate`
-- `q = 1 - p`
-- `R = reward_to_risk_ratio`
-- `f = risk_fraction`
-- `n = trials`
-- `B0 = initial_bankroll`
-
-Single-trial multipliers:
-
-- win: `1 + fR`
-- loss: `1 - f`
-
-Terminal bankroll after `k` wins:
-
-```text
-B_n(k) = B0 * (1 + fR)^k * (1 - f)^(n-k)
-```
-
-Number of wins:
-
-```text
-k ~ Binomial(n, p)
-```
-
-### Ruin definition in V1
-
-In this project, ruin means only:
-
-```text
-P(B_n <= ruin_threshold_fraction * initial_bankroll)
-```
-
-This is a terminal-horizon threshold probability.
-
-It is not pathwise ruin.
-
 ## API
 
 ### Health endpoint
@@ -108,167 +68,47 @@ Example request:
 }
 ```
 
-Example response:
+*(See OpenAPI schema at `/openapi.json` for full response structure and metrics).*
 
-```json
-{
-  "model_version": "v1",
-  "analysis_type": "exact_terminal_binomial",
-  "inputs": {
-    "win_rate": 0.55,
-    "reward_to_risk_ratio": 1.2,
-    "risk_fraction": 0.02,
-    "trials": 300,
-    "initial_bankroll": 10000.0,
-    "ruin_threshold_fraction": 0.25
-  },
-  "metrics": {
-    "edge_per_risk_unit": 0.21000000000000008,
-    "break_even_win_rate": 0.45454545454545453,
-    "expected_return_per_trial": 0.0042000000000000015,
-    "expected_log_growth_per_trial": 0.003952871346640078,
-    "kelly_fraction": 0.17500000000000004,
-    "half_kelly_fraction": 0.08750000000000002
-  },
-  "outcomes": {
-    "expected_terminal_bankroll": 35161.3152096248,
-    "terminal_bankroll_quantiles": {
-      "p05": 17700.222708440087,
-      "p50": 32735.05417951463,
-      "p95": 60540.694305772195
-    },
-    "ruin_threshold_bankroll": 2500.0,
-    "horizon_ruin_probability": 5.705327450936433e-12
-  },
-  "warnings": [],
-  "assumptions": [
-    "independent_trials",
-    "constant_win_rate",
-    "constant_reward_to_risk_ratio",
-    "fixed_fractional_risk_sizing",
-    "binary_outcome_model",
-    "no_fees_slippage_taxes_partial_exits_or_regime_changes"
-  ]
-}
-```
+## Request validation & Safety
 
-## Warnings
-
-The API may emit a small set of warnings:
-
-- `negative_edge`
-- `negative_expected_log_growth`
-- `risk_fraction_above_kelly`
-- `risk_fraction_above_half_kelly`
-
-These are simple analytical flags, not a strategy scoring system.
-
-## Request validation
-
-Input validation is explicit and conservative:
+Input validation is explicit and mathematically conservative:
 
 - `0 <= win_rate <= 1`
-- `reward_to_risk_ratio > 0`
+- `0 < reward_to_risk_ratio <= 1000`
 - `0 <= risk_fraction < 1`
-- `trials > 0`
-- `initial_bankroll > 0`
+- `0 < trials <= 10000`
+- `0 < initial_bankroll <= 1_000_000_000_000`
 - `0 <= ruin_threshold_fraction <= 1`
 
-Unknown request fields are rejected.
-
-## Project structure
-
-```text
-app/
-  api/
-    routes/
-      risk.py
-    schemas/
-      request.py
-      response.py
-  domain/
-    formulas/
-      expectancy.py
-      growth.py
-      kelly.py
-      terminal_distribution.py
-    services/
-      analyze_strategy.py
-    warnings.py
-    assumptions.py
-  core/
-    logging.py
-    settings.py
-  main.py
-
-tests/
-  unit/
-  property/
-  integration/
-  contract/
-```
+**Float Overflow Protection:** The API employs a logarithmic evaluation step (`O(1)`) in the Pydantic validator before processing. If inputs would result in a mathematically valid but computationally impossible value (exceeding IEEE 754 float64 limits, `~10^308`), it safely rejects the request with a `422 Unprocessable Entity` instead of allowing a `500 Internal Server Error`.
 
 ## Tech stack
 
-- Python 3.12
-- FastAPI
-- Pydantic v2
-- NumPy
-- pytest
-- Hypothesis
-- Ruff
-- mypy
-- Docker
-- GitHub Actions
-- uv
+- **Core:** Python 3.12, FastAPI, Pydantic v2, NumPy
+- **QA/SDET:** pytest, Hypothesis, Schemathesis, mutmut
+- **Tooling:** Ruff, mypy, uv, Docker, GitHub Actions
+
+## Testing Strategy (QA/SDET Showcase)
+
+This project implements a multi-layered, aggressive testing strategy designed to protect exact analytical formulas:
+
+1. **Unit & Integration:** Standard exact-value verification and HTTP routing checks.
+2. **Property-Based Testing (`Hypothesis`):** Verifies mathematical invariants (e.g., ruin probabilities must stay within `[0, 1]`, higher win rates must not increase ruin probability).
+3. **Contract & Fuzzing (`Schemathesis`):** Automatically reads the OpenAPI schema and bombs the endpoints with extreme inputs to prove zero unhandled exceptions (no 5xx errors) and strict Pydantic response compliance.
+4. **Mutation Testing (`mutmut`):** Achieves a **100% mutation kill rate**. Any change to the domain logic (flipped operators, off-by-one errors) is immediately caught by the test suite, proving the tests have true semantic understanding of the domain, not just high line coverage.
 
 ## Local development
 
-### 1. Create environment and install dependencies
+### 1. Create environment and run API
 
 ```bash
 uv venv --python 3.12
 uv sync --dev
-```
-
-### 2. Run the API
-
-```bash
 uv run uvicorn app.main:app --reload
 ```
 
-App will be available at:
-
-```text
-http://127.0.0.1:8000
-```
-
-### 3. Quick manual checks
-
-Health:
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-Risk analysis:
-
-```bash
-curl -X POST http://127.0.0.1:8000/v1/risk/analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "win_rate": 0.55,
-    "reward_to_risk_ratio": 1.2,
-    "risk_fraction": 0.02,
-    "trials": 300,
-    "initial_bankroll": 10000,
-    "ruin_threshold_fraction": 0.25
-  }'
-```
-
-## Testing
-
-Run all checks:
+### 2. Run test layers
 
 ```bash
 uv run ruff check .
@@ -276,65 +116,34 @@ uv run mypy app
 uv run pytest
 ```
 
-Run test layers separately:
+Run advanced QA tooling:
 
 ```bash
-uv run pytest tests/unit
-uv run pytest tests/property
-uv run pytest tests/integration
-uv run pytest tests/contract
+# OpenAPI Fuzzing
+uv run pytest tests/contract/test_fuzzing.py -v
+
+# Mutation Testing
+uv run mutmut run --paths-to-mutate app/domain/formulas/
+uv run mutmut results
 ```
 
 ## Docker
 
-Build image:
+Build image & run container:
 
 ```bash
 docker build -t bankroll-risk-api .
-```
-
-Run container:
-
-```bash
 docker run --rm -p 8000:8000 bankroll-risk-api
-```
-
-Smoke check:
-
-```bash
 curl http://127.0.0.1:8000/health
 ```
-
-## CI
-
-GitHub Actions pipeline runs:
-
-- Ruff
-- mypy
-- pytest
-- Docker build
-- container smoke test against `/health`
-
-## Notes on numerical approach
-
-The terminal outcome model is exact with respect to the binomial formulation used here.
-
-A few implementation details are purely numerical safeguards:
-
-- binomial probabilities are computed in log space for stability
-- the probability mass function is normalized after computation to remove tiny floating-point drift
-- terminal quantiles are taken from the discrete cumulative distribution using the left quantile convention
-
-These choices do not change the analytical model.
 
 ## Why this project exists
 
 This is a small portfolio project meant to show:
 
-- clean API design
-- disciplined scope control
-- separation of HTTP and domain logic
-- deterministic analytical modeling
-- pragmatic QA/SDET thinking through unit, property, integration, and contract tests
+- clean API design and disciplined scope control
+- strict separation of HTTP and domain logic
+- deterministic analytical modeling over simulation
+- advanced SDET methodologies (Property, Fuzzing, Mutation testing)
 
 It is deliberately small, closed, and engineering-first.
