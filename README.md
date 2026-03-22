@@ -86,7 +86,7 @@ Input validation is explicit and mathematically conservative:
 ## Tech stack
 
 - **Core:** Python 3.12, FastAPI, Pydantic v2, NumPy
-- **QA/SDET:** pytest, Hypothesis, Schemathesis, mutmut
+- **QA/SDET:** pytest, Hypothesis, Schemathesis, mutmut, k6, Bandit, Trivy
 - **Tooling:** Ruff, mypy, uv, Docker, GitHub Actions
 
 ## Testing Strategy (QA/SDET Showcase)
@@ -97,7 +97,8 @@ This project implements a multi-layered, aggressive testing strategy designed to
 2. **Property-Based Testing (`Hypothesis`):** Verifies mathematical invariants (e.g., ruin probabilities must stay within `[0, 1]`, higher win rates must not increase ruin probability).
 3. **Contract & Fuzzing (`Schemathesis`):** Automatically reads the OpenAPI schema and bombs the endpoints with extreme inputs to prove zero unhandled exceptions (no 5xx errors) and strict Pydantic response compliance.
 4. **Mutation Testing (`mutmut`):** Achieves a **100% mutation kill rate**. Any change to the domain logic (flipped operators, off-by-one errors) is immediately caught by the test suite, proving the tests have true semantic understanding of the domain, not just high line coverage.
-5. **Performance & Capacity (`k6`):** Load testing configuration to establish performance baselines and verify CPU bounds under maximum computational load (e.g., maximum allowed `trials`), enforcing p95 latency SLOs.
+5. **Performance & Capacity (`k6`):** Load testing configuration to establish performance baselines and verify CPU bounds under typical and maximum computational loads, enforcing strict latency SLOs.
+6. **Security & Supply Chain (`DevSecOps`):** Shift-left security implementation. Uses `bandit` for Python Static Application Security Testing (SAST) and `trivy` for container image vulnerability scanning (SCA) directly within the CI pipeline.
 
 ## Local development
 
@@ -126,6 +127,9 @@ uv run pytest tests/contract/test_fuzzing.py -v
 # Mutation Testing
 uv run mutmut run --paths-to-mutate app/domain/formulas/
 uv run mutmut results
+
+# Security Scanning (SAST)
+uv run bandit -r app/ -c pyproject.toml
 ```
 
 ### 3. Run Performance Tests (k6)
@@ -154,6 +158,6 @@ This is a small portfolio project meant to show:
 - clean API design and disciplined scope control
 - strict separation of HTTP and domain logic
 - deterministic analytical modeling over simulation
-- advanced SDET methodologies (Property, Fuzzing, Mutation testing)
+- advanced SDET methodologies (Property, Fuzzing, Mutation, Performance, and Security testing)
 
 It is deliberately small, closed, and engineering-first.
