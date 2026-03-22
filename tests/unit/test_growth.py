@@ -61,3 +61,17 @@ def test_expected_terminal_bankroll_matches_single_trial_expectation() -> None:
 
     assert result == pytest.approx(expected)
     assert math.isfinite(result)
+
+
+def test_expected_log_growth_per_trial_exact_value() -> None:
+    # Protects against formula regression and sign-flip mutations
+    # (e.g., changing '+' to '-' in win_multiplier or log accumulation)
+    result = expected_log_growth_per_trial(
+        win_rate=0.5,
+        reward_to_risk_ratio=2.0,
+        risk_fraction=0.1,
+    )
+
+    # Expected: 0.5 * log(1.2) + 0.5 * log(0.9)
+    expected = 0.5 * math.log(1.2) + 0.5 * math.log(0.9)
+    assert result == pytest.approx(expected)

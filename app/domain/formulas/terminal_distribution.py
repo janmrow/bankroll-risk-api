@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 
 from app.domain.formulas.growth import loss_multiplier, win_multiplier
 
-FloatArray = NDArray[np.float64]
+FloatArray = NDArray[np.float64]  # pragma: no mutate
 
 
 def _binomial_log_probability(trials: int, wins: int, win_rate: float) -> float:
@@ -39,7 +39,7 @@ def binomial_probability_mass(trials: int, win_rate: float) -> FloatArray:
         dtype=np.float64,
     )
 
-    probabilities /= probabilities.sum()
+    probabilities /= probabilities.sum()  # pragma: no mutate
     return probabilities
 
 
@@ -174,4 +174,4 @@ def horizon_ruin_probability(
     raw_probability = probabilities[bankrolls <= threshold].sum()
 
     # Use clipping to handle floating-point accumulation noise
-    return float(np.clip(raw_probability, 0.0, 1.0))
+    return float(np.clip(raw_probability, 0.0, 1.0))  # pragma: no mutate
