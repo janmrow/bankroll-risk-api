@@ -17,6 +17,7 @@ dev = [
   "mypy>=1.10,<2.0",
   "pytest>=8.0,<9.0",
   "ruff>=0.5,<1.0",
+  "schemathesis>=3.35,<4.0",
 ]
 
 [tool.uv]
@@ -26,6 +27,10 @@ package = false
 pythonpath = ["."]
 addopts = "-q"
 testpaths = ["tests"]
+filterwarnings = [
+  "ignore::DeprecationWarning:schemathesis.*",
+  "ignore::DeprecationWarning:jsonschema.*",
+]
 
 [tool.ruff]
 line-length = 100
