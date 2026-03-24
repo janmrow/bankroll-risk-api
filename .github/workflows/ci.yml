@@ -43,6 +43,15 @@ jobs:
       - name: Build Docker image
         run: docker build -t bankroll-risk-api:test .
 
+      - name: Verify container runs as non-root
+        run: |
+          USER=$(docker run --rm bankroll-risk-api:test whoami)
+          echo "Container runs as: $USER"
+          if [ "$USER" = "root" ]; then
+            echo "SECURITY ALERT: Container must not run as root!"
+            exit 1
+          fi
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:

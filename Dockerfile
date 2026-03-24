@@ -8,12 +8,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# SECURITY FIX: Create a dedicated non-root user
+RUN useradd -m appuser
+
 COPY pyproject.toml uv.lock ./
 
 RUN pip install --no-cache-dir uv \
     && uv sync --no-dev --frozen
 
 COPY app ./app
+
+# SECURITY FIX: Switch to the unprivileged user
+USER appuser
 
 EXPOSE 8000
 
