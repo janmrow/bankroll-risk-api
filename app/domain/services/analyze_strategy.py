@@ -17,6 +17,7 @@ from app.domain.formulas import (
     horizon_ruin_probability,
     kelly_fraction,
     ruin_threshold_bankroll,
+    terminal_bankroll_distribution,
     terminal_bankroll_quantiles,
 )
 from app.domain.warnings import build_warnings
@@ -54,22 +55,28 @@ def analyze_strategy(request: RiskAnalysisRequest) -> RiskAnalysisResponse:
         trials=request.trials,
         initial_bankroll=request.initial_bankroll,
     )
-    quantiles = terminal_bankroll_quantiles(
+
+    # PERFORMANCE: Pre-compute the full terminal binomial distribution exactly once (O(n)).
+    # This prevents redundant heavy math operations (e.g. lgamma) across downstream metrics.
+    bankrolls, probabilities = terminal_bankroll_distribution(
         win_rate=request.win_rate,
         reward_to_risk_ratio=request.reward_to_risk_ratio,
         risk_fraction=request.risk_fraction,
         trials=request.trials,
         initial_bankroll=request.initial_bankroll,
+    )
+
+    quantiles = terminal_bankroll_quantiles(
+        bankrolls=bankrolls,
+        probabilities=probabilities,
     )
     ruin_threshold = ruin_threshold_bankroll(
         initial_bankroll=request.initial_bankroll,
         ruin_threshold_fraction=request.ruin_threshold_fraction,
     )
     ruin_probability = horizon_ruin_probability(
-        win_rate=request.win_rate,
-        reward_to_risk_ratio=request.reward_to_risk_ratio,
-        risk_fraction=request.risk_fraction,
-        trials=request.trials,
+        bankrolls=bankrolls,
+        probabilities=probabilities,
         initial_bankroll=request.initial_bankroll,
         ruin_threshold_fraction=request.ruin_threshold_fraction,
     )

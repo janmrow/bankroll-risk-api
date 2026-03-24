@@ -12,37 +12,14 @@ from app.domain.formulas import (
     terminal_bankroll_quantiles,
 )
 
-PROBABILITY = st.floats(
-    min_value=0.0,
-    max_value=1.0,
-    allow_nan=False,
-    allow_infinity=False,
-)
-REWARD_TO_RISK = st.floats(
-    min_value=0.1,
-    max_value=3.0,
-    allow_nan=False,
-    allow_infinity=False,
-)
-RISK_FRACTION = st.floats(
-    min_value=0.0,
-    max_value=0.25,
-    allow_nan=False,
-    allow_infinity=False,
-)
+PROBABILITY = st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False)
+REWARD_TO_RISK = st.floats(min_value=0.1, max_value=3.0, allow_nan=False, allow_infinity=False)
+RISK_FRACTION = st.floats(min_value=0.0, max_value=0.25, allow_nan=False, allow_infinity=False)
 TRIALS = st.integers(min_value=1, max_value=60)
 INITIAL_BANKROLL = st.floats(
-    min_value=1.0,
-    max_value=1_000_000.0,
-    allow_nan=False,
-    allow_infinity=False,
+    min_value=1.0, max_value=1_000_000.0, allow_nan=False, allow_infinity=False
 )
-RUIN_THRESHOLD = st.floats(
-    min_value=0.0,
-    max_value=1.0,
-    allow_nan=False,
-    allow_infinity=False,
-)
+RUIN_THRESHOLD = st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False)
 
 
 @settings(max_examples=100, deadline=None)
@@ -62,19 +39,19 @@ def test_horizon_ruin_probability_is_bounded(
     initial_bankroll: float,
     ruin_threshold_fraction: float,
 ) -> None:
-    """
-    Property: Probability must always stay within [0, 1] range.
-    """
-    result = horizon_ruin_probability(
+    bankrolls, probabilities = terminal_bankroll_distribution(
         win_rate=win_rate,
         reward_to_risk_ratio=reward_to_risk_ratio,
         risk_fraction=risk_fraction,
         trials=trials,
         initial_bankroll=initial_bankroll,
+    )
+    result = horizon_ruin_probability(
+        bankrolls=bankrolls,
+        probabilities=probabilities,
+        initial_bankroll=initial_bankroll,
         ruin_threshold_fraction=ruin_threshold_fraction,
     )
-
-    # We use strict comparison because the production code now employs np.clip.
     assert 0.0 <= result <= 1.0
     assert not np.isnan(result)
 
@@ -94,14 +71,14 @@ def test_terminal_bankroll_quantiles_are_ordered(
     trials: int,
     initial_bankroll: float,
 ) -> None:
-    quantiles = terminal_bankroll_quantiles(
+    bankrolls, probabilities = terminal_bankroll_distribution(
         win_rate=win_rate,
         reward_to_risk_ratio=reward_to_risk_ratio,
         risk_fraction=risk_fraction,
         trials=trials,
         initial_bankroll=initial_bankroll,
     )
-
+    quantiles = terminal_bankroll_quantiles(bankrolls, probabilities)
     assert quantiles["p05"] <= quantiles["p50"] <= quantiles["p95"]
 
 
@@ -127,7 +104,6 @@ def test_expected_terminal_bankroll_is_positive(
         trials=trials,
         initial_bankroll=initial_bankroll,
     )
-
     assert result > 0.0
 
 
@@ -151,25 +127,15 @@ def test_higher_ruin_threshold_does_not_reduce_ruin_probability(
     threshold_b: float,
 ) -> None:
     threshold_low, threshold_high = sorted((threshold_a, threshold_b))
-
-    ruin_low = horizon_ruin_probability(
+    bankrolls, probabilities = terminal_bankroll_distribution(
         win_rate=win_rate,
         reward_to_risk_ratio=reward_to_risk_ratio,
         risk_fraction=risk_fraction,
         trials=trials,
         initial_bankroll=initial_bankroll,
-        ruin_threshold_fraction=threshold_low,
     )
-    ruin_high = horizon_ruin_probability(
-        win_rate=win_rate,
-        reward_to_risk_ratio=reward_to_risk_ratio,
-        risk_fraction=risk_fraction,
-        trials=trials,
-        initial_bankroll=initial_bankroll,
-        ruin_threshold_fraction=threshold_high,
-    )
-
-    # Allow tiny float noise during comparison
+    ruin_low = horizon_ruin_probability(bankrolls, probabilities, initial_bankroll, threshold_low)
+    ruin_high = horizon_ruin_probability(bankrolls, probabilities, initial_bankroll, threshold_high)
     assert ruin_high >= ruin_low - 1e-12
 
 
@@ -194,24 +160,20 @@ def test_higher_win_rate_does_not_increase_ruin_probability(
 ) -> None:
     low_win_rate, high_win_rate = sorted((probability_a, probability_b))
 
-    ruin_low = horizon_ruin_probability(
-        win_rate=low_win_rate,
-        reward_to_risk_ratio=reward_to_risk_ratio,
-        risk_fraction=risk_fraction,
-        trials=trials,
-        initial_bankroll=initial_bankroll,
-        ruin_threshold_fraction=ruin_threshold_fraction,
+    bankrolls_low, prob_low = terminal_bankroll_distribution(
+        low_win_rate, reward_to_risk_ratio, risk_fraction, trials, initial_bankroll
     )
-    ruin_high = horizon_ruin_probability(
-        win_rate=high_win_rate,
-        reward_to_risk_ratio=reward_to_risk_ratio,
-        risk_fraction=risk_fraction,
-        trials=trials,
-        initial_bankroll=initial_bankroll,
-        ruin_threshold_fraction=ruin_threshold_fraction,
+    ruin_low = horizon_ruin_probability(
+        bankrolls_low, prob_low, initial_bankroll, ruin_threshold_fraction
     )
 
-    # Allow tiny float noise during comparison
+    bankrolls_high, prob_high = terminal_bankroll_distribution(
+        high_win_rate, reward_to_risk_ratio, risk_fraction, trials, initial_bankroll
+    )
+    ruin_high = horizon_ruin_probability(
+        bankrolls_high, prob_high, initial_bankroll, ruin_threshold_fraction
+    )
+
     assert ruin_high <= ruin_low + 1e-12
 
 
@@ -224,15 +186,8 @@ def test_kelly_is_clipped_to_zero_when_edge_is_non_positive(
     win_rate: float,
     reward_to_risk_ratio: float,
 ) -> None:
-    edge = edge_per_risk_unit(
-        win_rate=win_rate,
-        reward_to_risk_ratio=reward_to_risk_ratio,
-    )
-    kelly = kelly_fraction(
-        win_rate=win_rate,
-        reward_to_risk_ratio=reward_to_risk_ratio,
-    )
-
+    edge = edge_per_risk_unit(win_rate=win_rate, reward_to_risk_ratio=reward_to_risk_ratio)
+    kelly = kelly_fraction(win_rate=win_rate, reward_to_risk_ratio=reward_to_risk_ratio)
     if edge <= 0.0:
         assert kelly == 0.0
     else:
@@ -271,8 +226,4 @@ def test_distribution_aggregation_matches_expected_terminal_bankroll(
     )
 
     assert float(np.sum(probabilities)) == pytest.approx(1.0)
-    assert expected_from_distribution == pytest.approx(
-        expected_from_formula,
-        rel=1e-10,
-        abs=1e-8,
-    )
+    assert expected_from_distribution == pytest.approx(expected_from_formula, rel=1e-10, abs=1e-8)
