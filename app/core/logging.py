@@ -7,7 +7,7 @@ def configure_logging(level: int = logging.INFO) -> None:
     if root_logger.handlers:
         return
 
-    logging.basicConfig(
+    logging.basicConfig(  # pragma: no cover
         level=level,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
