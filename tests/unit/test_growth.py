@@ -5,6 +5,8 @@ import pytest
 from app.domain.formulas.growth import (
     expected_log_growth_per_trial,
     expected_terminal_bankroll,
+    loss_multiplier,
+    win_multiplier,
 )
 
 
@@ -75,3 +77,8 @@ def test_expected_log_growth_per_trial_exact_value() -> None:
     # Expected: 0.5 * log(1.2) + 0.5 * log(0.9)
     expected = 0.5 * math.log(1.2) + 0.5 * math.log(0.9)
     assert result == pytest.approx(expected)
+
+
+def test_multipliers_exact_values() -> None:
+    assert win_multiplier(risk_fraction=0.02, reward_to_risk_ratio=1.5) == pytest.approx(1.03)
+    assert loss_multiplier(risk_fraction=0.02) == pytest.approx(0.98)

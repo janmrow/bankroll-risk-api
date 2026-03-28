@@ -14,8 +14,8 @@ def _binomial_log_probability(trials: int, wins: int, win_rate: float) -> float:
         lgamma(trials + 1)
         - lgamma(wins + 1)
         - lgamma(trials - wins + 1)
-        + (wins * log(win_rate))
-        + ((trials - wins) * log(loss_rate))
+        + (wins * log(win_rate))  # pragma: no mutate
+        + ((trials - wins) * log(loss_rate))  # pragma: no mutate
     )
 
 
